@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internet Speed & Signal Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
+            background-color: blue;
+            color: white;
+        }
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: white;
+            color: blue;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Internet Speed Test</h2>
+        <p>Ping: <span id="ping">-</span> ms</p>
+        <p>Download Speed: <span id="download">-</span> Mbps</p>
+        <p>Upload Speed: <span id="upload">-</span> Mbps</p>
+        <p>ISP: <span id="isp">-</span></p>
+        <button onclick="startSpeedTest()">Start Test</button>
+    </div>
+
+    <div class="container">
+        <h2>Live Network Analysis</h2>
+        <p>Current Network Type: <span id="networkType">-</span></p>
+        <p>Signal Strength: <span id="signalStrength">-</span></p>
+    </div>
+
+    <script>
+        async function startSpeedTest() {
+            const start = performance.now();
+            await fetch('https://www.google.com/', { mode: 'no-cors' });
+            const end = performance.now();
+            document.getElementById("ping").innerText = (end - start).toFixed(2);
+
+            if (navigator.connection) {
+                document.getElementById("download").innerText = (navigator.connection.downlink || '-');
+                document.getElementById("upload").innerText = (navigator.connection.effectiveType || '-');
+            }
+            
+            fetch('https://ipapi.co/json/')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("isp").innerText = data.org || '-';
+                })
+                .catch(() => {
+                    document.getElementById("isp").innerText = "Unknown";
+                });
+        }
+
+        function monitorNetwork() {
+            if (navigator.connection) {
+                document.getElementById("networkType").innerText = navigator.connection.effectiveType || 'Unknown';
+                document.getElementById("signalStrength").innerText = navigator.connection.downlink ? navigator.connection.downlink + " Mbps" : "Unknown";
+            }
+        }
+
+        setInterval(monitorNetwork, 3000);
+    </script>
+
+</body>
+</html>
