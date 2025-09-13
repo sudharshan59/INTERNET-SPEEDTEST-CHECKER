@@ -30,17 +30,87 @@
             border: none;
             border-radius: 5px;
         }
+        .warning {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        /* Circular Progress Meter (Spike Gauge) */
+        .gauge-container {
+            display: inline-block;
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 15px auto;
+        }
+        .gauge {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .gauge circle {
+            fill: none;
+            stroke: rgba(255,255,255,0.2);
+            stroke-width: 8;
+        }
+        .gauge .progress {
+            fill: none;
+            stroke: #ffeb3b;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.5s ease;
+        }
+        .gauge-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .meter-label {
+            font-size: 14px;
+            margin-top: 10px;
+            color: #e0e0e0;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>Internet Speed Test</h2>
+        
+        <!-- Ping -->
         <p>Ping: <span id="ping">-</span> ms</p>
-        <p>Download Speed: <span id="download">-</span> Mbps</p>
-        <p>Upload Speed: <span id="upload">-</span> Mbps</p>
+
+        <!-- Download Spike Meter -->
+        <div class="gauge-container">
+            <svg class="gauge" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" />
+                <circle id="download-gauge" class="progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="283" />
+            </svg>
+            <div class="gauge-text"><span id="download-value">-</span></div>
+        </div>
+        <p class="meter-label">Download Speed</p>
+
+        <!-- Upload Spike Meter -->
+        <div class="gauge-container">
+            <svg class="gauge" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" />
+                <circle id="upload-gauge" class="progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="283" />
+            </svg>
+            <div class="gauge-text"><span id="upload-value">-</span></div>
+        </div>
+        <p class="meter-label">Upload Speed</p>
+
+        <!-- ISP -->
         <p>ISP: <span id="isp">-</span></p>
+
         <button onclick="startSpeedTest()">Start Test</button>
+        <p class="warning">Note: Results may vary by network and browser support.</p>
     </div>
 
     <div class="container">
@@ -50,21 +120,62 @@
     </div>
 
     <script>
+        // Utility: Calculate dash offset from percentage (max circumference = 2 * π * r ≈ 283)
+        function updateGauge(elementId, value, maxValue = 100) {
+            const gauge = document.getElementById(elementId);
+            const percent = Math.min(Math.max(value / maxValue, 0), 1); // Clamp between 0–1
+            const dashArray = 283; // Circumference of circle (r=45)
+            const dashOffset = dashArray * (1 - percent);
+            gauge.style.strokeDasharray = dashArray;
+            gauge.style.strokeDashoffset = dashOffset;
+
+            // Update text inside gauge
+            const valueEl = document.getElementById(elementId.replace('-gauge', '-value'));
+            if (value === '-' || isNaN(value)) {
+                valueEl.innerText = '-';
+            } else {
+                valueEl.innerText = value.toFixed(2) + ' Mbps';
+            }
+        }
+
         async function startSpeedTest() {
-            const start = performance.now();
-            await fetch('https://www.google.com/', { mode: 'no-cors' });
-            const end = performance.now();
-            document.getElementById("ping").innerText = (end - start).toFixed(2);
+            const startTime = performance.now();
+
+            // Use httpbin.org for reliable ping test
+            try {
+                await fetch('https://httpbin.org/delay/0', { mode: 'no-cors' });
+                const endTime = performance.now();
+                document.getElementById("ping").innerText = (endTime - startTime).toFixed(2);
+            } catch (err) {
+                document.getElementById("ping").innerText = "Error";
+            }
+
+            // Get estimated speeds via Connection API
+            let downloadSpeed = '-';
+            let uploadSpeed = '-';
 
             if (navigator.connection) {
-                document.getElementById("download").innerText = (navigator.connection.downlink || '-');
-                document.getElementById("upload").innerText = (navigator.connection.effectiveType || '-');
+                downloadSpeed = navigator.connection.downlink || '-';
+                // Upload estimation: typically 1/3 to 1/2 of downlink (approximation)
+                uploadSpeed = downloadSpeed !== '-' ? (downloadSpeed * 0.4).toFixed(2) : '-';
+                
+                // Update download gauge (use max 100 Mbps as reference)
+                updateGauge('download-gauge', downloadSpeed, 100);
+
+                // Update upload gauge (scaled down from download)
+                updateGauge('upload-gauge', parseFloat(uploadSpeed), 100);
+            } else {
+                updateGauge('download-gauge', '-', 100);
+                updateGauge('upload-gauge', '-', 100);
+                document.getElementById("download-value").innerText = "Not supported";
+                document.getElementById("upload-value").innerText = "Not supported";
             }
-            
+
+            // Get ISP info
             fetch('https://ipapi.co/json/')
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById("isp").innerText = data.org || '-';
+                    document.getElementById("isp").innerText = data.org || 'Unknown';
                 })
                 .catch(() => {
                     document.getElementById("isp").innerText = "Unknown";
@@ -74,11 +185,19 @@
         function monitorNetwork() {
             if (navigator.connection) {
                 document.getElementById("networkType").innerText = navigator.connection.effectiveType || 'Unknown';
-                document.getElementById("signalStrength").innerText = navigator.connection.downlink ? navigator.connection.downlink + " Mbps" : "Unknown";
+                const downlink = navigator.connection.downlink || '-';
+                document.getElementById("signalStrength").innerText = downlink !== '-' ? downlink.toFixed(2) + " Mbps" : "Unknown";
+            } else {
+                document.getElementById("networkType").innerText = "Not supported";
+                document.getElementById("signalStrength").innerText = "Not supported";
             }
         }
 
+        // Run monitor every 3 seconds
         setInterval(monitorNetwork, 3000);
+
+        // Initial load
+        monitorNetwork();
     </script>
 
 </body>
