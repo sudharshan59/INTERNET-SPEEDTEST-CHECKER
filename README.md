@@ -14,7 +14,7 @@ A simple Python-based tool to check your internet speed—download, upload, and 
 ## 🛠️ Tech Stack
 
 - Python 3.x
-- [speedtest-cli](https://github.com/sivel/speedtest-cli)
+- [speedtest-cli](https://huggingface.co/spaces/sudharshan001/internet_speed_tester)
 
 ## 📥 Installation
 
